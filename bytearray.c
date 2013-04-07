@@ -221,8 +221,8 @@ PHP_METHOD(ByteArray, __construct) {
     zval *argv;
     char *res ;
     zval *data;
-	long write = 0;
-	long count = 1;
+    long write = 0;
+    long count = 1;
     zend_class_entry *ce;
     ce = Z_OBJCE_P(getThis());
 
@@ -230,13 +230,13 @@ PHP_METHOD(ByteArray, __construct) {
     ALLOC_INIT_ZVAL(data);
     // 读取参数
     if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &argv) == SUCCESS ){
-		write = Z_STRLEN_P(argv);
-		count = (long) ceil((double)write / PHP_BYTEARRAY_RES_SIZE);
-		res = emalloc(sizeof(char *) * count * PHP_BYTEARRAY_RES_SIZE);
-		memcpy(res, Z_STRVAL_P(argv), Z_STRLEN_P(argv));
+        write = Z_STRLEN_P(argv);
+        count = (long) ceil((double)write / PHP_BYTEARRAY_RES_SIZE);
+        res = emalloc(sizeof(char *) * count * PHP_BYTEARRAY_RES_SIZE);
+        memcpy(res, Z_STRVAL_P(argv), Z_STRLEN_P(argv));
     } else {
-		res = emalloc(sizeof(char *) * PHP_BYTEARRAY_RES_SIZE);
-	}
+        res = emalloc(sizeof(char *) * PHP_BYTEARRAY_RES_SIZE);
+    }
 
     // 注册的资源
     ZEND_REGISTER_RESOURCE(data, res, le_bytearray_descriptor);
@@ -391,7 +391,7 @@ PHP_METHOD(ByteArray, readUTFBytes){
 PHP_METHOD(ByteArray, toString){
     char *res;
     zval *data, *index, *val;
-	zval *self = getThis();
+    zval *self = getThis();
 
     zend_class_entry *ce;
     ce = Z_OBJCE_P(self);
