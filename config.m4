@@ -13,9 +13,9 @@ dnl [  --with-bytearray             Include bytearray support])
 
 dnl Otherwise use enable:
 
-dnl PHP_ARG_ENABLE(bytearray, whether to enable bytearray support,
-dnl Make sure that the comment is aligned:
-dnl [  --enable-bytearray           Enable bytearray support])
+PHP_ARG_ENABLE(bytearray, whether to enable bytearray support,
+Make sure that the comment is aligned:
+[  --enable-bytearray           Enable bytearray support])
 
 if test "$PHP_BYTEARRAY" != "no"; then
   dnl Write more examples of tests here...
