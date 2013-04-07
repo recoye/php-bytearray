@@ -83,7 +83,7 @@ PHP_METHOD(ByteArray, writeUTF);
 PHP_METHOD(ByteArray, writeUTFBytes);
 
 /* 
-  	Declare any global variables you may need between the BEGIN
+	Declare any global variables you may need between the BEGIN
 	and END macros here:     
 
 ZEND_BEGIN_MODULE_GLOBALS(bytearray)
