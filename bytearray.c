@@ -218,21 +218,33 @@ PHP_METHOD(ByteArray, __construct) {
     /**
      * 函数构造时创建一个资源
      */
-    char *res = emalloc(sizeof(char *) * PHP_BYTEARRAY_RES_SIZE);
+    zval *argv;
+    char *res ;
     zval *data;
+	long write = 0;
+	long count = 1;
     zend_class_entry *ce;
     ce = Z_OBJCE_P(getThis());
 
     // data的存储位置
     ALLOC_INIT_ZVAL(data);
+    // 读取参数
+    if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &argv) == SUCCESS ){
+		write = Z_STRLEN_P(argv);
+		count = (long) ceil((double)write / PHP_BYTEARRAY_RES_SIZE);
+		res = emalloc(sizeof(char *) * count * PHP_BYTEARRAY_RES_SIZE);
+		memcpy(res, Z_STRVAL_P(argv), Z_STRLEN_P(argv));
+    } else {
+		res = emalloc(sizeof(char *) * PHP_BYTEARRAY_RES_SIZE);
+	}
 
     // 注册的资源
     ZEND_REGISTER_RESOURCE(data, res, le_bytearray_descriptor);
 
     // 写到当前类的属性中
     zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
-    zend_update_property_long(ce, getThis(), ZEND_STRL("_data_count"), 1 TSRMLS_CC);
-    zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), 0 TSRMLS_CC);
+    zend_update_property_long(ce, getThis(), ZEND_STRL("_data_count"), count TSRMLS_CC);
+    zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), write TSRMLS_CC);
     zend_update_property_long(ce, getThis(), ZEND_STRL("_read_index"), 0 TSRMLS_CC);
 }
 
@@ -377,7 +389,22 @@ PHP_METHOD(ByteArray, readUTFBytes){
 }
 
 PHP_METHOD(ByteArray, toString){
+    char *res;
+    zval *data, *index, *val;
+	zval *self = getThis();
 
+    zend_class_entry *ce;
+    ce = Z_OBJCE_P(self);
+
+    data = zend_read_property(ce, self, ZEND_STRL("_data_res"), 0 TSRMLS_CC);
+    index = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
+
+    ZEND_FETCH_RESOURCE_NO_RETURN(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
+
+    ALLOC_INIT_ZVAL(val);
+    ZVAL_STRINGL(val, res, Z_LVAL(*index), 1);
+
+    RETURN_ZVAL(val, 0, 1);
 }
 
 PHP_METHOD(ByteArray, uncompress){
