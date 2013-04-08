@@ -2,9 +2,14 @@
 $bytearray = new ByteArray();
 $bytearray->writeBoolean('true');
 $bytearray->writeUTF("this is a good test!");
+$byte = 1;
+$bytearray->writeByte($byte);
+$bytearray->writeUTF("this is a good test!");
 echo $bytearray->readBoolean();
 echo "\n";
 echo $bytearray->readUTF();
+echo "\n";
+echo $bytearray->readByte();
 echo "\n";
 $a = $bytearray->toString();
 var_dump($bytearray);

@@ -598,7 +598,15 @@ PHP_METHOD(ByteArray, writeByte){
 }
 
 PHP_METHOD(ByteArray, writeBytes){
+    zval *argv;
+    // 读取参数
+    if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &argv) == FAILURE )
+    {
+        RETURN_NULL();
+    }
 
+    // 写字符
+    bytearray_write_bytes(getThis(), Z_STRVAL_P(argv), Z_STRLEN_P(argv) TSRMLS_CC);
 }
 
 PHP_METHOD(ByteArray, writeDouble){
