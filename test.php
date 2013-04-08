@@ -13,6 +13,24 @@ echo $bytearray->readByte();
 echo "\n";
 $a = $bytearray->toString();
 var_dump($bytearray);
+$b4 = new ByteArray();
+$b4->writeInt(strlen($a));
+$b4->writeBytes($a);
+$len = $b4->readInt();
+echo "\n";
+echo "read bytes:";
+echo $len;
+$bytes = $b4->readBytes($len);
+
+echo "\n";
+echo "bytes md5:";
+echo md5($bytes);
+echo "\n";
+echo "bytes md5:";
+echo md5($a);
+echo "\n";
+var_dump($b4);
+
 $bytearray->compress();
 echo "compress\n";
 var_dump($bytearray);

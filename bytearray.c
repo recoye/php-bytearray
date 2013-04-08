@@ -345,7 +345,7 @@ PHP_METHOD(ByteArray, readByte){
 PHP_METHOD(ByteArray, readBytes){
     long offset = -1,length = 0;
     char *res, *bytes;
-    zval *data, *index, *windex, *self;
+    zval *data, *index, *windex, *self, *val;
     zend_class_entry *ce;
 
     self = getThis();
@@ -389,7 +389,12 @@ PHP_METHOD(ByteArray, readBytes){
     // 更新位置
     zend_update_property(ce, self, ZEND_STRL("_read_index"), index TSRMLS_CC);
 
-    RETURN_STRINGL(bytes, length, 0);
+    ALLOC_INIT_ZVAL(val);
+    ZVAL_STRINGL(val, bytes, length, 1);
+
+    efree(bytes);
+
+    RETURN_ZVAL(val, 0, 1);
 }
 
 PHP_METHOD(ByteArray, readDouble){
@@ -468,11 +473,11 @@ PHP_METHOD(ByteArray, readUTF){
     }
 
     len = bytearray_bytes_to_short(shortByte);
+    efree(shortByte);
 
     utfBytes = emalloc(sizeof(char) * len);
 
     if ( 1 != bytearray_read_bytes(getThis(), utfBytes, len TSRMLS_CC) ) {
-        efree(shortByte);
         efree(utfBytes);
         RETURN_NULL();
     }
@@ -480,7 +485,6 @@ PHP_METHOD(ByteArray, readUTF){
     ALLOC_INIT_ZVAL(val);
     ZVAL_STRINGL(val, utfBytes, len, 1);
 
-    efree(shortByte);
     efree(utfBytes);
 
     RETURN_ZVAL(val, 0, 1);
