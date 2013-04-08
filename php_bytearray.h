@@ -36,6 +36,14 @@ extern zend_module_entry bytearray_module_entry;
 #include "TSRM.h"
 #endif
 
+#include <zlib.h>
+
+#ifdef PHP_WIN32
+# define PHP_ZLIB_MODIFIER 100
+#else
+# define PHP_ZLIB_MODIFIER 1000
+#endif
+
 // 定义资源文件
 #define PHP_BYTEARRAY_RES_NAME "ByteArray"
 #define PHP_BYTEARRAY_RES_SIZE 256 

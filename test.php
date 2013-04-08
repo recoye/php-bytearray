@@ -1,0 +1,28 @@
+<?php
+$bytearray = new ByteArray();
+$bytearray->writeBoolean('true');
+$bytearray->writeUTF("this is a good test!");
+echo $bytearray->readBoolean();
+echo "\n";
+echo $bytearray->readUTF();
+echo "\n";
+$a = $bytearray->toString();
+var_dump($bytearray);
+$bytearray->compress();
+echo "compress\n";
+var_dump($bytearray);
+$b = $bytearray->toString();
+$b2 = new ByteArray($a);
+echo $b2->readBoolean();
+echo "\n";
+echo $b2->readUTF();
+echo "\n";
+var_dump($b2);
+$b3 = new ByteArray($b);
+var_dump($b3);
+$b3->uncompress();
+echo $b3->readBoolean();
+echo "\n";
+echo $b3->readUTF();
+echo "\n";
+var_dump($b3);

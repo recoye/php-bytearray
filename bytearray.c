@@ -263,7 +263,58 @@ PHP_METHOD(ByteArray, __destruct) {
     efree(res);
 }
 
+// 压缩
 PHP_METHOD(ByteArray, compress){
+    char *res, *cres;
+    zval *data, *index, *count;
+	long level, len;
+	int status;
+
+	level = Z_DEFAULT_COMPRESSION;
+
+	if ( (level < -1 ) || (level > 9) ) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "compression level (%ld) mouse be within -1...9", level);
+		RETURN_FALSE;
+	}
+
+    zend_class_entry *ce;
+    ce = Z_OBJCE_P(getThis());
+    data = zend_read_property(ce, getThis(), ZEND_STRL("_data_res"), 0 TSRMLS_CC);
+	count = zend_read_property(ce, getThis(), ZEND_STRL("_data_count"), 0 TSRMLS_CC);
+	index = zend_read_property(ce, getThis(), ZEND_STRL("_write_index"), 0 TSRMLS_CC);
+
+    ZEND_FETCH_RESOURCE(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
+
+	len = Z_LVAL_P(index) + (Z_LVAL_P(index) / PHP_ZLIB_MODIFIER ) + 15 + 1; /* room for \0 @ ext/zlib/zlib.c */
+
+	if ( len > Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE ) {
+		Z_LVAL_P(count)++;
+		zend_update_property(ce, getThis(), ZEND_STRL("_data_count"), count TSRMLS_CC);
+	}
+
+	cres = emalloc(sizeof(char *) * Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE);
+
+	if ( level >=0 ) {
+		status = compress2(cres, &len, res, Z_LVAL_P(index), level);
+	} else {
+		status = compress(cres, &len, res, Z_LVAL_P(index));
+	}
+
+	if ( status == Z_OK ) {
+		// 注册的资源
+		ZEND_REGISTER_RESOURCE(data, cres, le_bytearray_descriptor);
+
+		zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
+		zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), len TSRMLS_CC);
+
+		efree(res);
+
+		RETURN_TRUE;
+	} else {
+		efree(cres);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
+		RETURN_FALSE;
+	}
 }
 
 PHP_METHOD(ByteArray, readBoolean){
@@ -407,8 +458,62 @@ PHP_METHOD(ByteArray, toString){
     RETURN_ZVAL(val, 0, 1);
 }
 
+// 解压
 PHP_METHOD(ByteArray, uncompress){
+    char *res, *cres, *s1 = NULL, *s2 = NULL;
+    zval *data, *index, *count;
+	int len;
+	int status;
+	unsigned int factor = 1, maxfactor=16;
+	long limit = 0;
+	unsigned long plength = 0, length;
 
+    zend_class_entry *ce;
+    ce = Z_OBJCE_P(getThis());
+    data = zend_read_property(ce, getThis(), ZEND_STRL("_data_res"), 0 TSRMLS_CC);
+	count = zend_read_property(ce, getThis(), ZEND_STRL("_data_count"), 0 TSRMLS_CC);
+	index = zend_read_property(ce, getThis(), ZEND_STRL("_write_index"), 0 TSRMLS_CC);
+
+    ZEND_FETCH_RESOURCE(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
+
+	plength = limit;
+	/**
+	 * zlib::uncompress() wants to know the output data length
+	 * if none was gived as a paramter
+	 * we try from input length * 2 up to input length * 2 ^ 15
+	 * doubling it whenever it wasn't big enough
+	 * that should be enough for all real life cases
+	 * @ ext/zlib/zlib.c
+	 */
+	do{
+		length = plength ? plength : (unsigned long)Z_LVAL_P(index) * (1 << factor++);
+		s2 = (char *)erealloc(s1, length);
+		status = uncompress(s2, &length, res, Z_LVAL_P(index));
+		s1 = s2;
+	}while((status == Z_BUF_ERROR) && (!plength) && (factor < maxfactor));
+
+	if ( status == Z_OK ) {
+		Z_LVAL_P(count) = (long)ceil((double)length / PHP_BYTEARRAY_RES_SIZE);
+		cres = emalloc(sizeof(char) * Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE);
+
+		memcpy(cres, s2, length);
+
+		// 注册的资源
+		ZEND_REGISTER_RESOURCE(data, cres, le_bytearray_descriptor);
+
+		zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
+		zend_update_property(ce, getThis(), ZEND_STRL("_data_count"), count TSRMLS_CC);
+		zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), length TSRMLS_CC);
+
+		efree(res);
+		efree(s2);
+
+		RETURN_TRUE;
+	} else {
+		efree(s2);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
+		RETURN_FALSE;
+	}
 }
 
 PHP_METHOD(ByteArray, writeBoolean){
