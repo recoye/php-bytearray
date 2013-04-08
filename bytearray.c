@@ -691,7 +691,7 @@ void bytearray_short_to_bytes(short n, char *bytes){
     bytes[1] = (char)(0xff & n);
 }
 
-void bytearray_int_to_byte(int i, char *bytes){
+void bytearray_int_to_bytes(int i, char *bytes){
     memset(bytes,0,sizeof(char) *  4);
     bytes[0] =(char)((0xff000000 & i) >> 24);
     bytes[1] = (char) ((0xff0000 & i) >> 16);
