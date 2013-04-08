@@ -26,6 +26,7 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_bytearray.h"
+#include <stdbool.h>
 
 /* If you declare any globals in php_bytearray.h uncomment this:
 ZEND_DECLARE_MODULE_GLOBALS(bytearray)
