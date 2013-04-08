@@ -42,7 +42,6 @@ ZEND_BEGIN_ARG_INFO(arg_value, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arg_bytes, 0)
-    ZEND_ARG_OBJ_INFO(0, bytes, "ByteArray", 0)
     ZEND_ARG_INFO(0, offset)
     ZEND_ARG_INFO(0, length)
 ZEND_END_ARG_INFO()
@@ -344,7 +343,53 @@ PHP_METHOD(ByteArray, readByte){
 }
 
 PHP_METHOD(ByteArray, readBytes){
+	long offset = -1,length = 0;
+	char *res, *bytes;
+    zval *data, *index, *windex, *self;
+    zend_class_entry *ce;
 
+	self = getThis();
+    ce = Z_OBJCE_P(self);
+    data = zend_read_property(ce, self, ZEND_STRL("_data_res"), 0 TSRMLS_CC);
+    index = zend_read_property(ce, self, ZEND_STRL("_read_index"), 0 TSRMLS_CC);
+    windex = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
+
+    // 读取参数
+    if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|l", length, offset) == FAILURE ){
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "read bytes params failed!");
+		RETURN_FALSE;
+	}
+
+	if(offset == -1) {
+		offset = Z_LVAL_P(index);
+	}
+
+	if ( length < 1 ) {
+		length = Z_LVAL_P(windex) + length;
+	}
+
+	if ( length < 1 ) {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "read bytes length failed!");
+		RETURN_FALSE;
+	}
+
+    if ( offset + length > Z_LVAL(*windex) ) {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "read index overflow!");
+		RETURN_FALSE;
+    }
+
+    ZEND_FETCH_RESOURCE_NO_RETURN(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
+    
+	bytes = emalloc(sizeof(char) * length);
+    memset(bytes, 0x0, length);
+    memcpy(bytes, res + offset, length);
+
+    Z_LVAL(*index) = offset + length;
+
+    // 更新位置
+    zend_update_property(ce, self, ZEND_STRL("_read_index"), index TSRMLS_CC);
+
+	RETURN_STRINGL(bytes, length, 0);
 }
 
 PHP_METHOD(ByteArray, readDouble){
@@ -361,11 +406,16 @@ PHP_METHOD(ByteArray, readFloat){
 }
 
 PHP_METHOD(ByteArray, readInt){
+    char *shortBytes = emalloc(sizeof(char) * 4);
     int d;
 
-    if ( 1 != bytearray_read_bytes(getThis(), &d, sizeof(int) TSRMLS_CC) ) {
+    if ( 1 != bytearray_read_bytes(getThis(), shortBytes, 4 TSRMLS_CC) ) {
         RETURN_NULL();
     }
+
+    d = bytearray_bytes_to_int(shortBytes);
+
+    efree(shortBytes);
 
     RETURN_LONG(d);
 }
@@ -574,7 +624,10 @@ PHP_METHOD(ByteArray, writeInt){
         RETURN_NULL();
     }
 
-    bytearray_write_bytes(getThis(), &Z_LVAL_P(argv), sizeof(int) TSRMLS_CC);
+    char *shortBytes = emalloc(sizeof(char) * 4);
+    bytearray_int_to_bytes(Z_LVAL_P(argv), shortBytes);
+    bytearray_write_bytes(getThis(), shortBytes, 4 TSRMLS_CC);
+    efree(shortBytes);
 }
 
 PHP_METHOD(ByteArray, writeMultiByte){
