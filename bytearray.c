@@ -355,7 +355,7 @@ PHP_METHOD(ByteArray, readBytes){
     windex = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
 
     // 读取参数
-    if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|l", length, offset) == FAILURE ){
+    if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|l", &length, &offset) == FAILURE ){
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "read bytes params failed!");
 		RETURN_FALSE;
 	}
