@@ -313,7 +313,7 @@ PHP_METHOD(ByteArray, compress){
 		RETURN_TRUE;
 	} else {
 		efree(cres);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "compress error,code: %d, message:%s", status, zError(status));
 		RETURN_FALSE;
 	}
 }
@@ -512,7 +512,7 @@ PHP_METHOD(ByteArray, uncompress){
 		RETURN_TRUE;
 	} else {
 		efree(s2);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "uncompress error,code: %d, message:%s", status, zError(status));
 		RETURN_FALSE;
 	}
 }
