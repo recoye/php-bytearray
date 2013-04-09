@@ -149,7 +149,7 @@ PHP_MINIT_FUNCTION(bytearray)
     /*
      * 注册资源类型
      */
-    le_bytearray_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_BYTEARRAY_RES_NAME, module_number);
+//    le_bytearray_descriptor = zend_register_list_destructors_ex(bytearray_destory_res, NULL, PHP_BYTEARRAY_RES_NAME, module_number);
 
     /**
      * 注册类
@@ -219,7 +219,6 @@ PHP_METHOD(ByteArray, __construct) {
      * 函数构造时创建一个资源
      */
     zval *argv;
-    char *res ;
     zval *data;
     long write = 0;
     long count = 1;
@@ -232,14 +231,11 @@ PHP_METHOD(ByteArray, __construct) {
     if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &argv) == SUCCESS ){
         write = Z_STRLEN_P(argv);
         count = (long) ceil((double)write / PHP_BYTEARRAY_RES_SIZE);
-        res = emalloc(sizeof(char *) * count * PHP_BYTEARRAY_RES_SIZE);
-        memcpy(res, Z_STRVAL_P(argv), Z_STRLEN_P(argv));
+		Z_STRVAL_P(data) = emalloc(sizeof(char *) * count * PHP_BYTEARRAY_RES_SIZE);
+        memcpy(Z_STRVAL_P(data), Z_STRVAL_P(argv), Z_STRLEN_P(argv));
     } else {
-        res = emalloc(sizeof(char *) * PHP_BYTEARRAY_RES_SIZE);
+		Z_STRVAL_P(data) = emalloc(sizeof(char *) * PHP_BYTEARRAY_RES_SIZE);
     }
-
-    // 注册的资源
-    ZEND_REGISTER_RESOURCE(data, res, le_bytearray_descriptor);
 
     // 写到当前类的属性中
     zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
@@ -250,22 +246,19 @@ PHP_METHOD(ByteArray, __construct) {
 
 PHP_METHOD(ByteArray, __destruct) {
     // 释放资源
-    char *res;
     zval *data;
 
     zend_class_entry *ce;
     ce = Z_OBJCE_P(getThis());
     data = zend_read_property(ce, getThis(), ZEND_STRL("_data_res"), 0 TSRMLS_CC);
-
-    ZEND_FETCH_RESOURCE(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
     
+	efree(Z_STRVAL_P(data));
     efree(data);
-    efree(res);
 }
 
 // 压缩
 PHP_METHOD(ByteArray, compress){
-    char *res, *cres;
+    char *cres;
     zval *data, *index, *count;
     long level, len;
     int status;
@@ -283,8 +276,6 @@ PHP_METHOD(ByteArray, compress){
     count = zend_read_property(ce, getThis(), ZEND_STRL("_data_count"), 0 TSRMLS_CC);
     index = zend_read_property(ce, getThis(), ZEND_STRL("_write_index"), 0 TSRMLS_CC);
 
-    ZEND_FETCH_RESOURCE(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
-
     len = Z_LVAL_P(index) + (Z_LVAL_P(index) / PHP_ZLIB_MODIFIER ) + 15 + 1; /* room for \0 @ ext/zlib/zlib.c */
 
     if ( len > Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE ) {
@@ -295,19 +286,17 @@ PHP_METHOD(ByteArray, compress){
     cres = emalloc(sizeof(char *) * Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE);
 
     if ( level >=0 ) {
-        status = compress2(cres, &len, res, Z_LVAL_P(index), level);
+        status = compress2(cres, &len, Z_STRVAL_P(data), Z_LVAL_P(index), level);
     } else {
-        status = compress(cres, &len, res, Z_LVAL_P(index));
+        status = compress(cres, &len, Z_STRVAL_P(data), Z_LVAL_P(index));
     }
 
     if ( status == Z_OK ) {
-        // 注册的资源
-        ZEND_REGISTER_RESOURCE(data, cres, le_bytearray_descriptor);
+        efree(Z_STRVAL_P(data));
+		Z_STRVAL_P(data) = cres;
 
         zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
         zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), len TSRMLS_CC);
-
-        efree(res);
 
         RETURN_TRUE;
     } else {
@@ -344,7 +333,7 @@ PHP_METHOD(ByteArray, readByte){
 
 PHP_METHOD(ByteArray, readBytes){
     long offset = -1,length = 0;
-    char *res, *bytes;
+    char *bytes;
     zval *data, *index, *windex, *self, *val;
     zend_class_entry *ce;
 
@@ -377,12 +366,10 @@ PHP_METHOD(ByteArray, readBytes){
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "read index overflow!");
         RETURN_FALSE;
     }
-
-    ZEND_FETCH_RESOURCE_NO_RETURN(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
     
     bytes = emalloc(sizeof(char) * length);
     memset(bytes, 0x0, length);
-    memcpy(bytes, res + offset, length);
+    memcpy(bytes, Z_STRVAL_P(data) + offset, length);
 
     Z_LVAL(*index) = offset + length;
 
@@ -495,7 +482,6 @@ PHP_METHOD(ByteArray, readUTFBytes){
 }
 
 PHP_METHOD(ByteArray, toString){
-    char *res;
     zval *data, *index, *val;
     zval *self = getThis();
 
@@ -505,17 +491,15 @@ PHP_METHOD(ByteArray, toString){
     data = zend_read_property(ce, self, ZEND_STRL("_data_res"), 0 TSRMLS_CC);
     index = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
 
-    ZEND_FETCH_RESOURCE_NO_RETURN(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
-
     ALLOC_INIT_ZVAL(val);
-    ZVAL_STRINGL(val, res, Z_LVAL(*index), 1);
+    ZVAL_STRINGL(val, Z_STRVAL_P(data), Z_LVAL(*index), 1);
 
     RETURN_ZVAL(val, 0, 1);
 }
 
 // 解压
 PHP_METHOD(ByteArray, uncompress){
-    char *res, *cres, *s1 = NULL, *s2 = NULL;
+    char *cres, *s1 = NULL, *s2 = NULL;
     zval *data, *index, *count;
     int len;
     int status;
@@ -529,8 +513,6 @@ PHP_METHOD(ByteArray, uncompress){
     count = zend_read_property(ce, getThis(), ZEND_STRL("_data_count"), 0 TSRMLS_CC);
     index = zend_read_property(ce, getThis(), ZEND_STRL("_write_index"), 0 TSRMLS_CC);
 
-    ZEND_FETCH_RESOURCE(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
-
     plength = limit;
     /**
      * zlib::uncompress() wants to know the output data length
@@ -543,7 +525,7 @@ PHP_METHOD(ByteArray, uncompress){
     do{
         length = plength ? plength : (unsigned long)Z_LVAL_P(index) * (1 << factor++);
         s2 = (char *)erealloc(s1, length);
-        status = uncompress(s2, &length, res, Z_LVAL_P(index));
+        status = uncompress(s2, &length, Z_STRVAL_P(data), Z_LVAL_P(index));
         s1 = s2;
     }while((status == Z_BUF_ERROR) && (!plength) && (factor < maxfactor));
 
@@ -553,14 +535,13 @@ PHP_METHOD(ByteArray, uncompress){
 
         memcpy(cres, s2, length);
 
-        // 注册的资源
-        ZEND_REGISTER_RESOURCE(data, cres, le_bytearray_descriptor);
+		efree(Z_STRVAL_P(data));
+		Z_STRVAL_P(data) = cres;
 
         zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
         zend_update_property(ce, getThis(), ZEND_STRL("_data_count"), count TSRMLS_CC);
         zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), length TSRMLS_CC);
 
-        efree(res);
         efree(s2);
 
         RETURN_TRUE;
@@ -723,7 +704,6 @@ int bytearray_bytes_to_int(byte *bytes){
 }
 
 int bytearray_write_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
-    char *res;
     zval *data, *index, *count;
     zend_class_entry *ce;
     ce = Z_OBJCE_P(self);
@@ -731,22 +711,17 @@ int bytearray_write_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
     index = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
     count = zend_read_property(ce, self, ZEND_STRL("_data_count"), 0 TSRMLS_CC);
 
-    ZEND_FETCH_RESOURCE_NO_RETURN(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
-
     // 内存不足时
     if (Z_LVAL(*index) + size > Z_LVAL(*count) * PHP_BYTEARRAY_RES_SIZE) {
         Z_LVAL(*count) += (long)ceil((double)size/PHP_BYTEARRAY_RES_SIZE);
-        res = erealloc(res, sizeof(char *) * Z_LVAL(*count) * PHP_BYTEARRAY_RES_SIZE);
-
-        // 注册的资源
-        ZEND_REGISTER_RESOURCE(data, res, le_bytearray_descriptor);
+        Z_STRVAL_P(data) = erealloc(Z_STRVAL_P(data), sizeof(char *) * Z_LVAL(*count) * PHP_BYTEARRAY_RES_SIZE);
 
         // 写到当前类的属性中
         zend_update_property(ce, self, ZEND_STRL("_data_res"), data TSRMLS_CC);
         zend_update_property(ce, self, ZEND_STRL("_data_count"), count TSRMLS_CC);
     }
 
-    memcpy(res + Z_LVAL(*index), bytes, size);
+    memcpy(Z_STRVAL_P(data) + Z_LVAL(*index), bytes, size);
 
     Z_LVAL(*index) += size;
 
@@ -757,7 +732,6 @@ int bytearray_write_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
 }
 
 int bytearray_read_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
-    char *res;
     zval *data, *index, *windex;
 
     zend_class_entry *ce;
@@ -770,11 +744,9 @@ int bytearray_read_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "read index overflow!");
         return 0;
     }
-
-    ZEND_FETCH_RESOURCE_NO_RETURN(res, char *, &data, -1, PHP_BYTEARRAY_RES_NAME, le_bytearray_descriptor);
     
     memset(bytes, 0x0, size);
-    memcpy(bytes, res + Z_LVAL(*index), size);
+    memcpy(bytes, Z_STRVAL_P(data) + Z_LVAL(*index), size);
 
     Z_LVAL(*index) += size;
 

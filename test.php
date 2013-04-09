@@ -1,5 +1,9 @@
 <?php
+echo memory_get_usage();
+echo "\n";
 $bytearray = new ByteArray();
+echo memory_get_usage();
+echo "\n";
 $bytearray->writeBoolean('true');
 $bytearray->writeUTF("this is a good test!");
 $byte = 1;
