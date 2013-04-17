@@ -75,6 +75,7 @@ PHP_METHOD(ByteArray, readUnsignedInt);
 PHP_METHOD(ByteArray, readUnsignedShort);
 PHP_METHOD(ByteArray, readUTF);
 PHP_METHOD(ByteArray, readUTFBytes);
+PHP_METHOD(ByteArray, available);
 PHP_METHOD(ByteArray, toString);
 PHP_METHOD(ByteArray, uncompress);
 PHP_METHOD(ByteArray, writeBoolean);

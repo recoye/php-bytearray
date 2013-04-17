@@ -73,6 +73,7 @@ const zend_function_entry bytearray_functions[] = {
     PHP_ME(ByteArray, readUnsignedShort, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(ByteArray, readUTF, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(ByteArray, readUTFBytes, arg_value, ZEND_ACC_PUBLIC)
+    PHP_ME(ByteArray, available, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(ByteArray, toString, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(ByteArray, uncompress, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(ByteArray, writeBoolean, arg_value, ZEND_ACC_PUBLIC)
@@ -479,6 +480,22 @@ PHP_METHOD(ByteArray, readUTF){
 
 PHP_METHOD(ByteArray, readUTFBytes){
 
+}
+
+PHP_METHOD(ByteArray, available){
+	zval *rIndex, *wIndex;
+	zval *self = getThis();
+    zend_class_entry *ce;
+    ce = Z_OBJCE_P(self);
+
+    rIndex = zend_read_property(ce, self, ZEND_STRL("_read_index"), 0 TSRMLS_CC);
+    wIndex = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
+
+	if (Z_LVAL_P(rIndex) < Z_LVAL_P(wIndex)) {
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
 }
 
 PHP_METHOD(ByteArray, toString){
