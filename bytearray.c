@@ -310,7 +310,7 @@ PHP_METHOD(ByteArray, readBoolean){
     bool b;
 
     if ( 1 != bytearray_read_bytes(getThis(), &b, sizeof(bool) TSRMLS_CC) ) {
-        RETURN_NULL();
+        RETURN_FALSE;
     }
 
     RETURN_BOOL(b);
@@ -322,7 +322,7 @@ PHP_METHOD(ByteArray, readByte){
     char *b = emalloc(sizeof(char));
 
     if ( 1 != bytearray_read_bytes(getThis(), b, 1 TSRMLS_CC) ) {
-        RETURN_NULL();
+        RETURN_FALSE;
     }
 
     d = *b & 0xFF;
@@ -388,7 +388,7 @@ PHP_METHOD(ByteArray, readDouble){
     double d;
 
     if ( 1 != bytearray_read_bytes(getThis(), &d, sizeof(double) TSRMLS_CC) ) {
-        RETURN_FALSE();
+        RETURN_FALSE;
     }
 
     RETURN_DOUBLE(d);
@@ -402,7 +402,7 @@ PHP_METHOD(ByteArray, readInt){
     int d;
 
     if ( 1 != bytearray_read_bytes(getThis(), shortBytes, 4 TSRMLS_CC) ) {
-        RETURN_FALSE();
+        RETURN_FALSE;
     }
 
     d = bytearray_bytes_to_int(shortBytes);
