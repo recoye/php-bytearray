@@ -15,6 +15,8 @@ echo $bytearray->readUTF();
 echo "\n";
 echo $bytearray->readByte();
 echo "\n";
+echo $bytearray->readUTF();
+echo "\n";
 $a = $bytearray->toString();
 var_dump($bytearray);
 $b4 = new ByteArray();
@@ -53,3 +55,13 @@ echo "\n";
 echo $b3->readUTF();
 echo "\n";
 var_dump($b3);
+
+echo memory_get_usage();
+echo "\n";
+$ba1 = new ByteArray();
+for($i = 0; $i < 200; $i++) {
+    $ba1->writeUTF("this is a test!!!");
+}
+echo memory_get_usage();
+echo "\n";
+var_dump($ba1);

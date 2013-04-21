@@ -29,13 +29,13 @@
 #include <stdbool.h>
 
 /* If you declare any globals in php_bytearray.h uncomment this:
-ZEND_DECLARE_MODULE_GLOBALS(bytearray)
 */
+ZEND_DECLARE_MODULE_GLOBALS(bytearray)
 
 /* True global resources - no need for thread safety here */
 static int le_bytearray;
 
-static int le_bytearray_descriptor;
+zend_class_entry *bytearray_ce;
 
 ZEND_BEGIN_ARG_INFO(arg_value, 0)
     ZEND_ARG_INFO(0, value)
@@ -118,47 +118,42 @@ ZEND_GET_MODULE(bytearray)
 
 /* {{{ PHP_INI
  */
-/* Remove comments and fill if you need to have entries in php.ini
 PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("bytearray.global_value",      "42", PHP_INI_ALL, OnUpdateLong, global_value, zend_bytearray_globals, bytearray_globals)
-    STD_PHP_INI_ENTRY("bytearray.global_string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_bytearray_globals, bytearray_globals)
+    STD_PHP_INI_ENTRY("bytearray.max_block",      "20", PHP_INI_ALL, OnUpdateLong, max_block, zend_bytearray_globals, bytearray_globals)
+    STD_PHP_INI_ENTRY("bytearray.block_size",    "512", PHP_INI_ALL, OnUpdateLong, block_size, zend_bytearray_globals, bytearray_globals)
 PHP_INI_END()
-*/
 /* }}} */
 
 /* {{{ php_bytearray_init_globals
  */
-/* Uncomment this function if you have INI entries
+/*
 static void php_bytearray_init_globals(zend_bytearray_globals *bytearray_globals)
 {
-    bytearray_globals->global_value = 0;
-    bytearray_globals->global_string = NULL;
+    bytearray_globals->max_block = 36;
 }
 */
 /* }}} */
 
-
-zend_class_entry *bytearray_ce;
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(bytearray)
 {
-    /* If you have INI entries, uncomment these lines 
+#ifdef ZTS
+    ts_allocate_id(
+            &bytearray_globals_id,
+            sizeof(zend_bytearray_globals),
+            NULL, NULL);
+#endif
+	
     REGISTER_INI_ENTRIES();
-    */
 
-    /*
-     * 注册资源类型
-     */
-//    le_bytearray_descriptor = zend_register_list_destructors_ex(bytearray_destory_res, NULL, PHP_BYTEARRAY_RES_NAME, module_number);
-
-    /**
+	/*
      * 注册类
      */
     zend_class_entry ce;
 
     INIT_CLASS_ENTRY(ce, "ByteArray", bytearray_functions);//第二个参数为类名，第三个参数为函数表
-    bytearray_ce = zend_register_internal_class_ex(&ce, NULL, NULL TSRMLS_CC);//注册类
+    bytearray_ce = zend_register_internal_class(&ce TSRMLS_CC);//注册类
 
     /**
      * 注册私有变量
@@ -176,9 +171,8 @@ PHP_MINIT_FUNCTION(bytearray)
  */
 PHP_MSHUTDOWN_FUNCTION(bytearray)
 {
-    /* uncomment this line if you have INI entries
     UNREGISTER_INI_ENTRIES();
-    */
+
     return SUCCESS;
 }
 /* }}} */
@@ -209,9 +203,7 @@ PHP_MINFO_FUNCTION(bytearray)
     php_info_print_table_header(2, "bytearray support", "enabled");
     php_info_print_table_end();
 
-    /* Remove comments if you have entries in php.ini
     DISPLAY_INI_ENTRIES();
-    */
 }
 /* }}} */
 
@@ -230,12 +222,23 @@ PHP_METHOD(ByteArray, __construct) {
     ALLOC_INIT_ZVAL(data);
     // 读取参数
     if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &argv) == SUCCESS ){
+		convert_to_string(argv);
+
         write = Z_STRLEN_P(argv);
-        count = (long) ceil((double)write / PHP_BYTEARRAY_RES_SIZE);
-		Z_STRVAL_P(data) = emalloc(sizeof(char *) * count * PHP_BYTEARRAY_RES_SIZE);
-        memcpy(Z_STRVAL_P(data), Z_STRVAL_P(argv), Z_STRLEN_P(argv));
+        count = (long) ceil((double)write / BYTEARRAY_G(block_size));
+
+		// 这里需要设置最大申请的空间，放在Php.ini里面
+		if ( count > BYTEARRAY_G(max_block) ) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "too many block! wrong data :(");
+			Z_STRVAL_P(data) = emalloc(sizeof(char *) * BYTEARRAY_G(block_size));
+			write = 0;
+			count = 1;
+		} else {
+			Z_STRVAL_P(data) = emalloc(sizeof(char *) * count * BYTEARRAY_G(block_size));
+			memcpy(Z_STRVAL_P(data), Z_STRVAL_P(argv), Z_STRLEN_P(argv));
+		}
     } else {
-		Z_STRVAL_P(data) = emalloc(sizeof(char *) * PHP_BYTEARRAY_RES_SIZE);
+		Z_STRVAL_P(data) = emalloc(sizeof(char *) * BYTEARRAY_G(block_size));
     }
 
     // 写到当前类的属性中
@@ -279,12 +282,11 @@ PHP_METHOD(ByteArray, compress){
 
     len = Z_LVAL_P(index) + (Z_LVAL_P(index) / PHP_ZLIB_MODIFIER ) + 15 + 1; /* room for \0 @ ext/zlib/zlib.c */
 
-    if ( len > Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE ) {
+    if ( len > Z_LVAL_P(count) * BYTEARRAY_G(block_size) ) {
         Z_LVAL_P(count)++;
-        zend_update_property(ce, getThis(), ZEND_STRL("_data_count"), count TSRMLS_CC);
     }
 
-    cres = emalloc(sizeof(char *) * Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE);
+    cres = emalloc(sizeof(char *) * Z_LVAL_P(count) * BYTEARRAY_G(block_size));
 
     if ( level >=0 ) {
         status = compress2(cres, &len, Z_STRVAL_P(data), Z_LVAL_P(index), level);
@@ -295,9 +297,6 @@ PHP_METHOD(ByteArray, compress){
     if ( status == Z_OK ) {
         efree(Z_STRVAL_P(data));
 		Z_STRVAL_P(data) = cres;
-
-        zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
-        zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), len TSRMLS_CC);
 
         RETURN_TRUE;
     } else {
@@ -547,8 +546,8 @@ PHP_METHOD(ByteArray, uncompress){
     }while((status == Z_BUF_ERROR) && (!plength) && (factor < maxfactor));
 
     if ( status == Z_OK ) {
-        Z_LVAL_P(count) = (long)ceil((double)length / PHP_BYTEARRAY_RES_SIZE);
-        cres = emalloc(sizeof(char) * Z_LVAL_P(count) * PHP_BYTEARRAY_RES_SIZE);
+        Z_LVAL_P(count) = (long)ceil((double)length / BYTEARRAY_G(block_size));
+        cres = emalloc(sizeof(char) * Z_LVAL_P(count) * BYTEARRAY_G(block_size));
 
         memcpy(cres, s2, length);
 
@@ -579,6 +578,7 @@ PHP_METHOD(ByteArray, writeBoolean){
 
     int size = sizeof(bool);
     char *b = emalloc(sizeof(char) * size);
+	convert_to_boolean(argv);
     *b = Z_BVAL_P(argv);
     bytearray_write_bytes(getThis(), b, size TSRMLS_CC);
     efree(b);
@@ -593,6 +593,7 @@ PHP_METHOD(ByteArray, writeByte){
         RETURN_NULL();
     }
 
+	convert_to_long(argv);
     *b = Z_LVAL_P(argv) & 0xFF;
 
     bytearray_write_bytes(getThis(), b, 1 TSRMLS_CC);
@@ -607,6 +608,8 @@ PHP_METHOD(ByteArray, writeBytes){
         RETURN_NULL();
     }
 
+	convert_to_string(argv);
+
     // 写字符
     bytearray_write_bytes(getThis(), Z_STRVAL_P(argv), Z_STRLEN_P(argv) TSRMLS_CC);
 }
@@ -618,6 +621,8 @@ PHP_METHOD(ByteArray, writeDouble){
     {
         RETURN_NULL();
     }
+
+	convert_to_double(argv);
 
     bytearray_write_bytes(getThis(), &Z_DVAL_P(argv), sizeof(double) TSRMLS_CC);
 }
@@ -633,6 +638,8 @@ PHP_METHOD(ByteArray, writeInt){
     {
         RETURN_NULL();
     }
+
+	convert_to_long(argv);
 
     char *shortBytes = emalloc(sizeof(char) * 4);
     bytearray_int_to_bytes(Z_LVAL_P(argv), shortBytes);
@@ -656,6 +663,8 @@ PHP_METHOD(ByteArray, writeShort){
         RETURN_NULL();
     }
 
+	convert_to_long(argv);
+
     char *shortBytes = emalloc(sizeof(char) * 2);
     bytearray_short_to_bytes(Z_LVAL_P(argv), shortBytes);
     bytearray_write_bytes(getThis(), shortBytes, 2 TSRMLS_CC);
@@ -673,6 +682,8 @@ PHP_METHOD(ByteArray, writeUTF){
     {
         RETURN_NULL();
     }
+
+	convert_to_string(argv);
 
     // 写字符长度
     char *shortByte = emalloc(sizeof(char) * 2);
@@ -723,27 +734,29 @@ int bytearray_bytes_to_int(byte *bytes){
 int bytearray_write_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
     zval *data, *index, *count;
     zend_class_entry *ce;
+	long block;
     ce = Z_OBJCE_P(self);
     data = zend_read_property(ce, self, ZEND_STRL("_data_res"), 0 TSRMLS_CC);
     index = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
     count = zend_read_property(ce, self, ZEND_STRL("_data_count"), 0 TSRMLS_CC);
 
     // 内存不足时
-    if (Z_LVAL(*index) + size > Z_LVAL(*count) * PHP_BYTEARRAY_RES_SIZE) {
-        Z_LVAL(*count) += (long)ceil((double)size/PHP_BYTEARRAY_RES_SIZE);
-        Z_STRVAL_P(data) = erealloc(Z_STRVAL_P(data), sizeof(char *) * Z_LVAL(*count) * PHP_BYTEARRAY_RES_SIZE);
+    if (Z_LVAL(*index) + size > Z_LVAL(*count) * BYTEARRAY_G(block_size)) {
+		block = (long)ceil((double)size/BYTEARRAY_G(block_size));
+		// 这里需要设置最大申请的空间，放在Php.ini里面
+		if ( Z_LVAL_P(count)  + block > BYTEARRAY_G(max_block) ) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "too many block!");
+			return 0;
+		}
 
-        // 写到当前类的属性中
-        zend_update_property(ce, self, ZEND_STRL("_data_res"), data TSRMLS_CC);
-        zend_update_property(ce, self, ZEND_STRL("_data_count"), count TSRMLS_CC);
+        Z_LVAL(*count) += block;
+
+        Z_STRVAL_P(data) = erealloc(Z_STRVAL_P(data), sizeof(char *) * Z_LVAL(*count) * BYTEARRAY_G(block_size));
     }
 
     memcpy(Z_STRVAL_P(data) + Z_LVAL(*index), bytes, size);
 
     Z_LVAL(*index) += size;
-
-    // 更新位置
-    zend_update_property(ce, self, ZEND_STRL("_write_index"), index TSRMLS_CC);
 
     return 1;
 }
@@ -758,6 +771,9 @@ int bytearray_read_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
     windex = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
 
     if ( Z_LVAL(*index) + size > Z_LVAL(*windex) ) {
+		// 这里同时更新读的属性，说明已经读完
+		zend_update_property_long(ce, self, ZEND_STRL("_read_index"), Z_LVAL_P(windex) TSRMLS_CC);
+
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "read index overflow!");
         return 0;
     }
@@ -766,9 +782,6 @@ int bytearray_read_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
     memcpy(bytes, Z_STRVAL_P(data) + Z_LVAL(*index), size);
 
     Z_LVAL(*index) += size;
-
-    // 更新位置
-    zend_update_property(ce, self, ZEND_STRL("_read_index"), index TSRMLS_CC);
 
     return 1;
 }

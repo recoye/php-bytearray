@@ -44,10 +44,6 @@ extern zend_module_entry bytearray_module_entry;
 # define PHP_ZLIB_MODIFIER 1000
 #endif
 
-// 定义资源文件
-#define PHP_BYTEARRAY_RES_NAME "ByteArray"
-#define PHP_BYTEARRAY_RES_SIZE 256 
-
 // 类型
 typedef unsigned char byte;
 
@@ -94,12 +90,12 @@ PHP_METHOD(ByteArray, writeUTFBytes);
 /* 
 	Declare any global variables you may need between the BEGIN
 	and END macros here:     
+*/
 
 ZEND_BEGIN_MODULE_GLOBALS(bytearray)
-	long  global_value;
-	char *global_string;
+	long  max_block;
+	long  block_size;
 ZEND_END_MODULE_GLOBALS(bytearray)
-*/
 
 /* In every utility function you add that needs to use variables 
    in php_bytearray_globals, call TSRMLS_FETCH(); after declaring other 
