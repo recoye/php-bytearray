@@ -229,7 +229,7 @@ PHP_METHOD(ByteArray, __construct) {
 
 		// 这里需要设置最大申请的空间，放在Php.ini里面
 		if ( count > BYTEARRAY_G(max_block) ) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allowed block of %ld exhausted", BYTEARRAY_G(max_block));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allowed block of %ld exhausted,tried to allocate %ld", BYTEARRAY_G(max_block), count);
 			Z_STRVAL_P(data) = emalloc(sizeof(char *) * BYTEARRAY_G(block_size));
 			write = 0;
 			count = 1;
@@ -588,7 +588,11 @@ PHP_METHOD(ByteArray, writeByte){
         RETURN_NULL();
     }
 
-	convert_to_long(argv);
+
+	if (Z_TYPE_P(argv) != IS_LONG) {
+		convert_to_long(argv);
+	}
+
     *b = Z_LVAL_P(argv) & 0xFF;
 
     bytearray_write_bytes(getThis(), b, 1 TSRMLS_CC);
@@ -658,7 +662,9 @@ PHP_METHOD(ByteArray, writeShort){
         RETURN_NULL();
     }
 
-	convert_to_long(argv);
+	if (Z_TYPE_P(argv) != IS_LONG) {
+		convert_to_long(argv);
+	}
 
     char *shortBytes = emalloc(sizeof(char) * 2);
     bytearray_short_to_bytes(Z_LVAL_P(argv), shortBytes);
