@@ -222,7 +222,7 @@ PHP_METHOD(ByteArray, __construct) {
     ALLOC_INIT_ZVAL(data);
     // 读取参数
     if( ZEND_NUM_ARGS() > 0 && zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &argv) == SUCCESS ){
-		convert_to_string(argv);
+		//convert_to_string(argv);
 
         write = Z_STRLEN_P(argv);
         count = (long) ceil((double)write / BYTEARRAY_G(block_size));
@@ -283,7 +283,7 @@ PHP_METHOD(ByteArray, compress){
     len = Z_LVAL_P(index) + (Z_LVAL_P(index) / PHP_ZLIB_MODIFIER ) + 15 + 1; /* room for \0 @ ext/zlib/zlib.c */
 
     if ( len > Z_LVAL_P(count) * BYTEARRAY_G(block_size) ) {
-        Z_LVAL_P(count)++;
+        Z_LVAL_P(count) = (long)ceil((double)len / BYTEARRAY_G(block_size));
     }
 
     cres = emalloc(sizeof(char *) * Z_LVAL_P(count) * BYTEARRAY_G(block_size));
@@ -297,6 +297,7 @@ PHP_METHOD(ByteArray, compress){
     if ( status == Z_OK ) {
         efree(Z_STRVAL_P(data));
 		Z_STRVAL_P(data) = cres;
+		Z_LVAL_P(index) = len;
 
         RETURN_TRUE;
     } else {
@@ -588,10 +589,7 @@ PHP_METHOD(ByteArray, writeByte){
         RETURN_NULL();
     }
 
-
-	if (Z_TYPE_P(argv) != IS_LONG) {
-		convert_to_long(argv);
-	}
+	convert_to_long(argv);
 
     *b = Z_LVAL_P(argv) & 0xFF;
 
@@ -641,7 +639,7 @@ PHP_METHOD(ByteArray, writeInt){
 	convert_to_long(argv);
 
     char *shortBytes = emalloc(sizeof(char) * 4);
-    bytearray_int_to_bytes((int)Z_LVAL_P(argv), shortBytes);
+    bytearray_int_to_bytes(Z_LVAL_P(argv), shortBytes);
     bytearray_write_bytes(getThis(), shortBytes, 4 TSRMLS_CC);
     efree(shortBytes);
 }
@@ -662,9 +660,7 @@ PHP_METHOD(ByteArray, writeShort){
         RETURN_NULL();
     }
 
-	if (Z_TYPE_P(argv) != IS_LONG) {
-		convert_to_long(argv);
-	}
+	convert_to_long(argv);
 
     char *shortBytes = emalloc(sizeof(char) * 2);
     bytearray_short_to_bytes(Z_LVAL_P(argv), shortBytes);
