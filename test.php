@@ -59,7 +59,7 @@ var_dump($b3);
 echo memory_get_usage();
 echo "\n";
 $ba1 = new ByteArray();
-for($i = 0; $i < 200; $i++) {
+for($i = 0; $i < 20000; $i++) {
     $ba1->writeUTF("this is a test!!!");
 }
 echo memory_get_usage();

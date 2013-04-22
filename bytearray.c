@@ -229,7 +229,7 @@ PHP_METHOD(ByteArray, __construct) {
 
 		// 这里需要设置最大申请的空间，放在Php.ini里面
 		if ( count > BYTEARRAY_G(max_block) ) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "too many block! wrong data :(");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allowed block of %ld exhausted", BYTEARRAY_G(max_block));
 			Z_STRVAL_P(data) = emalloc(sizeof(char *) * BYTEARRAY_G(block_size));
 			write = 0;
 			count = 1;
@@ -371,10 +371,7 @@ PHP_METHOD(ByteArray, readBytes){
     memset(bytes, 0x0, length);
     memcpy(bytes, Z_STRVAL_P(data) + offset, length);
 
-    Z_LVAL(*index) = offset + length;
-
-    // 更新位置
-    zend_update_property(ce, self, ZEND_STRL("_read_index"), index TSRMLS_CC);
+    Z_LVAL_P(index) = offset + length;
 
     ALLOC_INIT_ZVAL(val);
     ZVAL_STRINGL(val, bytes, length, 1);
@@ -508,7 +505,7 @@ PHP_METHOD(ByteArray, toString){
     index = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
 
     ALLOC_INIT_ZVAL(val);
-    ZVAL_STRINGL(val, Z_STRVAL_P(data), Z_LVAL(*index), 1);
+    ZVAL_STRINGL(val, Z_STRVAL_P(data), Z_LVAL_P(index), 1);
 
     RETURN_ZVAL(val, 0, 1);
 }
@@ -554,9 +551,7 @@ PHP_METHOD(ByteArray, uncompress){
 		efree(Z_STRVAL_P(data));
 		Z_STRVAL_P(data) = cres;
 
-        zend_update_property(ce, getThis(), ZEND_STRL("_data_res"), data TSRMLS_CC);
-        zend_update_property(ce, getThis(), ZEND_STRL("_data_count"), count TSRMLS_CC);
-        zend_update_property_long(ce, getThis(), ZEND_STRL("_write_index"), length TSRMLS_CC);
+		Z_LVAL_P(index) = length;
 
         efree(s2);
 
@@ -642,7 +637,7 @@ PHP_METHOD(ByteArray, writeInt){
 	convert_to_long(argv);
 
     char *shortBytes = emalloc(sizeof(char) * 4);
-    bytearray_int_to_bytes(Z_LVAL_P(argv), shortBytes);
+    bytearray_int_to_bytes((int)Z_LVAL_P(argv), shortBytes);
     bytearray_write_bytes(getThis(), shortBytes, 4 TSRMLS_CC);
     efree(shortBytes);
 }
@@ -741,28 +736,29 @@ int bytearray_write_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
     count = zend_read_property(ce, self, ZEND_STRL("_data_count"), 0 TSRMLS_CC);
 
     // 内存不足时
-    if (Z_LVAL(*index) + size > Z_LVAL(*count) * BYTEARRAY_G(block_size)) {
+    if (Z_LVAL_P(index) + size > Z_LVAL_P(count) * BYTEARRAY_G(block_size)) {
 		block = (long)ceil((double)size/BYTEARRAY_G(block_size));
 		// 这里需要设置最大申请的空间，放在Php.ini里面
 		if ( Z_LVAL_P(count)  + block > BYTEARRAY_G(max_block) ) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "too many block!");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Allowed block of %ld exhausted", BYTEARRAY_G(max_block));
 			return 0;
 		}
 
-        Z_LVAL(*count) += block;
+        Z_LVAL_P(count) += block;
 
-        Z_STRVAL_P(data) = erealloc(Z_STRVAL_P(data), sizeof(char *) * Z_LVAL(*count) * BYTEARRAY_G(block_size));
+        Z_STRVAL_P(data) = erealloc(Z_STRVAL_P(data), sizeof(char *) * Z_LVAL_P(count) * BYTEARRAY_G(block_size));
     }
 
-    memcpy(Z_STRVAL_P(data) + Z_LVAL(*index), bytes, size);
+    memcpy(Z_STRVAL_P(data) + Z_LVAL_P(index), bytes, size);
 
-    Z_LVAL(*index) += size;
+    Z_LVAL_P(index) += size;
 
     return 1;
 }
 
 int bytearray_read_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
     zval *data, *index, *windex;
+	long current;
 
     zend_class_entry *ce;
     ce = Z_OBJCE_P(self);
@@ -770,16 +766,14 @@ int bytearray_read_bytes(zval *self, void *bytes, long size TSRMLS_DC) {
     index = zend_read_property(ce, self, ZEND_STRL("_read_index"), 0 TSRMLS_CC);
     windex = zend_read_property(ce, self, ZEND_STRL("_write_index"), 0 TSRMLS_CC);
 
-    if ( Z_LVAL(*index) + size > Z_LVAL(*windex) ) {
-		// 这里同时更新读的属性，说明已经读完
-		zend_update_property_long(ce, self, ZEND_STRL("_read_index"), Z_LVAL_P(windex) TSRMLS_CC);
-
-        php_error_docref(NULL TSRMLS_CC, E_WARNING, "read index overflow!");
+	current = Z_LVAL_P(index) + size;
+    if ( current > Z_LVAL_P(windex) ) {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "read index overflow!tried to read %ld", current);
         return 0;
     }
     
     memset(bytes, 0x0, size);
-    memcpy(bytes, Z_STRVAL_P(data) + Z_LVAL(*index), size);
+    memcpy(bytes, Z_STRVAL_P(data) + Z_LVAL_P(index), size);
 
     Z_LVAL(*index) += size;
 
