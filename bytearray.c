@@ -363,7 +363,8 @@ PHP_METHOD(ByteArray, readBytes){
         RETURN_FALSE;
     }
 
-    if ( offset + length > Z_LVAL(*windex) ) {
+    if ( offset + length > Z_LVAL_P(windex) ) {
+		Z_LVAL_P(index) = Z_LVAL_P(windex);
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "read index overflow!");
         RETURN_FALSE;
     }
