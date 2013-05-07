@@ -120,7 +120,7 @@ ZEND_GET_MODULE(bytearray)
  */
 PHP_INI_BEGIN()
     STD_PHP_INI_ENTRY("bytearray.max_block",      "20", PHP_INI_ALL, OnUpdateLong, max_block, zend_bytearray_globals, bytearray_globals)
-    STD_PHP_INI_ENTRY("bytearray.block_size",    "512", PHP_INI_ALL, OnUpdateLong, block_size, zend_bytearray_globals, bytearray_globals)
+    STD_PHP_INI_ENTRY("bytearray.block_size",    "1024", PHP_INI_ALL, OnUpdateLong, block_size, zend_bytearray_globals, bytearray_globals)
 PHP_INI_END()
 /* }}} */
 
