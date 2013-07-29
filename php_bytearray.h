@@ -108,7 +108,7 @@ ZEND_END_MODULE_GLOBALS(bytearray)
 */
 
 void bytearray_short_to_bytes(short n, char *bytes);
-void bytearray_int_to_byte(int i, char *bytes);
+void bytearray_int_to_bytes(int i, char *bytes);
 short bytearray_bytes_to_short(byte *bytes);
 int bytearray_bytes_to_int(byte *bytes);
 int bytearray_write_bytes(zval *self, void *bytes, long size TSRMLS_DC);
