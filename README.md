@@ -1,6 +1,6 @@
 #php ByteArray
 ===
-[![Build Status](https://secure.travis-ci.org/recoye/php-bytearray.svg?branch=master)](http://travis-ci.org/reoye/php-bytearray)
+[![Build Status](https://secure.travis-ci.org/recoye/php-bytearray.svg?branch=master)](http://travis-ci.org/recoye/php-bytearray)
 
 php版本的ByteArray,like java,as3。
 
