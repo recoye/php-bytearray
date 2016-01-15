@@ -1,5 +1,7 @@
 #php ByteArray
 ===
+[![Build Status](https://secure.travis-ci.org/recoye/php-bytearray.svg?branch=master)](http://travis-ci.org/reoye/php-bytearray)
+
 php版本的ByteArray,like java,as3。
 
 You can send comments, patches, questions [here on github](https://github.com/recoye/php-bytearray/issues) or to mail#recoye.com ([@recoye](http://weibo.com/trco)).
