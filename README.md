@@ -1,6 +1,7 @@
 #php ByteArray
 ===
 [![Build Status](https://secure.travis-ci.org/recoye/php-bytearray.svg?branch=master)](http://travis-ci.org/recoye/php-bytearray)
+[![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](http://recoye.mit-license.org/)
 
 php版本的ByteArray,like java,as3。
 
